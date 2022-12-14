@@ -2,11 +2,14 @@ import os
 import sys
 import base64
 import json
+import urllib3
 from argparse import ArgumentParser
 from requests_html import HTMLSession
 from bs4 import BeautifulSoup
 import re
 import pickle
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 sys.setrecursionlimit(10000)  # Pickled Soup
 session = HTMLSession()
@@ -110,8 +113,6 @@ def fetch_bin_days_page(address_form: BeautifulSoup, address_identifier: str | N
     payload.update(address_payload)
     response = _fetch_bin_days_form(address_form["action"], payload)
     response.raise_for_status()
-    with open('test.html', 'w') as f:
-        f.write(response.text)
     soup = BeautifulSoup(response.text, "html.parser")
     return soup
 
@@ -177,6 +178,7 @@ def get_current_pdf_url(postcode: str) -> str:
 def download_pdf_to_file(pdf_url, output_file) -> None:
     response = session.get(pdf_url, verify=False)
     response.raise_for_status()
+    print(f'Saving Bin Calendar to: {output_file}')
     with open(output_file, 'wb') as f:
         f.write(response.content)
 

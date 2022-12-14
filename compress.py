@@ -14,7 +14,7 @@ def load_json(file):
 
 def write_encoded(text, file):
     out_file = os.path.join(os.path.dirname(
-        file), '{}_encoded{}'.format(*os.path.splitext(file)))
+        file), f'{os.path.splitext(file)[0]}.bins')
     print(f'Writing to {out_file}')
     with open(out_file, 'w') as f:
         f.write(text)
@@ -48,7 +48,7 @@ def encode_values(json_data):
 
 def remove_whitespace(json_data):
     string = str(json_data)
-    string = string.replace(' ', '').replace('\n', '').strip('{}')
+    string = string.replace(' ', '').replace('\n', '')
     string = string.replace("'", "").replace('"', '')
     return string
 
@@ -59,7 +59,6 @@ def main(file):
     print(f'Original Size: {original_size}')
     json = load_json(file)
     json = trim_historical(json)
-    print(json)
     json = encode_values(json)
     text = remove_whitespace(json)
     out_file = write_encoded(text, file)

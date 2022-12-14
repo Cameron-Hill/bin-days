@@ -6,7 +6,6 @@ from PyPDF2 import PdfReader
 from argparse import ArgumentParser
 
 
-
 FESTIVE_PERIOD = ''  # ???  Must be a pdf rect?
 
 MONTHS = {calendar.month_name[i].lower(): i for i in range(1, 13)}
@@ -143,5 +142,7 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     _d = parse_bins(args["pdf_file"])
-    with open(os.path.splitext(args['pdf_file'])[0]+'.json', 'w') as f:
+    output = os.path.splitext(args['pdf_file'])[0]+'.json'
+    print(f'Saving calendar data to : {output}')
+    with open(output, 'w') as f:
         json.dump(_d, f)
