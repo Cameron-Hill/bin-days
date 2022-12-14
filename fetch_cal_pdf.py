@@ -26,14 +26,14 @@ FORM_FIELD = 'FIELD15'
 def cached(func):
     def wrapper(*args, **kwargs):
         func_id = func.__name__
-        cache_file = f'{func_id}.pk'
+        os.makedirs('.cache', exist_ok=True)
+        cache_file = os.path.join('.cache', f'{func_id}.pk')
         if USE_CACHE and os.path.isfile(cache_file):
             with open(cache_file, 'rb') as f:
                 print(f'Loading {cache_file}')
                 response = pickle.load(f)
         else:
             response = func(*args, **kwargs)
-            print(f'Saving {func_id} to cache')
             with open(cache_file, 'wb') as f:
                 pickle.dump(response, f)
         return response

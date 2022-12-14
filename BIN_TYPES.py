@@ -1,0 +1,19 @@
+FOOD_CADY = 'f-'
+BROWN_BIN = 'br-'
+BLUE_BIN = 'b-'
+GREY_BIN = 'gr-'
+GREEN_BIN = 'g-'
+PURPLE_LIDDED_BIN = 'p-'
+GREEN_AND_GREY_BINS = 'ggr-'
+GREEN_AND_BLUE_BINS = 'gb-'
+
+ENCODED = {
+    FOOD_CADY: 0,
+    BROWN_BIN: 1,
+    BLUE_BIN: 2,
+    GREY_BIN: 3,
+    GREEN_BIN: 4,
+    PURPLE_LIDDED_BIN: 5,
+    GREEN_AND_GREY_BINS: 6,
+    GREEN_AND_BLUE_BINS: 7
+}
