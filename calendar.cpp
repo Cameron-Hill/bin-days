@@ -111,7 +111,7 @@ public:
     for (int i = 0; i < bin_code_size; i++)
     {
       char c = bin_code[i];
-      if (c == '{' || c == '}' || c == ',' || c==':')
+      if (c == '{' || c == '}' || c == ',' || c == ':')
       {
         cout << bin_code[i];
       }
@@ -141,7 +141,7 @@ public:
 
 int main()
 {
-  char input[] = "{F:{<:{?:7,C:0,J:0,M:3}},G:{1:{2:0,5:4,9:0,<:2,@:0,C:5,G:0,J:6,N:0},2:{6:0,9:2,=:0,@:4,D:0,G:3,K:0}}}";
+  char input[] = "{F:{<:{C:1,J:1,M:4}},G:{1:{2:1,5:5,9:1,<:3,@:1,C:6,G:1,J:7,N:1},2:{6:1,9:3,=:1,@:5,D:1,G:4,K:1}}}";
   Calendar cal = Calendar();
-  cal.getYear(22, input, 101);
+  cal.getYear(22, input, 97);
 }
