@@ -1,3 +1,4 @@
+NO_BIN = ''
 FOOD_CADY = 'f-'
 BROWN_BIN = 'br-'
 BLUE_BIN = 'b-'
@@ -8,12 +9,13 @@ GREEN_AND_GREY_BINS = 'ggr-'
 GREEN_AND_BLUE_BINS = 'gb-'
 
 ENCODED = {
-    FOOD_CADY: 0,
-    BROWN_BIN: 1,
-    BLUE_BIN: 2,
-    GREY_BIN: 3,
-    GREEN_BIN: 4,
-    PURPLE_LIDDED_BIN: 5,
-    GREEN_AND_GREY_BINS: 6,
-    GREEN_AND_BLUE_BINS: 7
+    NO_BIN: 0,
+    FOOD_CADY: 1,
+    BROWN_BIN: 2,
+    BLUE_BIN: 3,
+    GREY_BIN: 4,
+    GREEN_BIN: 5,
+    PURPLE_LIDDED_BIN: 6,
+    GREEN_AND_GREY_BINS: 7,
+    GREEN_AND_BLUE_BINS: 8
 }
