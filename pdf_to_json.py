@@ -47,7 +47,7 @@ class BinCalParser:
         self.date = 1
 
     def _validate_code(self, code: str, day: int, month: Month, lookup: str):
-        if len(code) > 6:  # Maximum Date length: GGr-31 (6)
+        if len(code) > 8:  # Maximum Date length: GGr-31 (6)
             raise InvalidDateString(
                 f'Parsed invalid date string while looking for {month.name} {day}  ({lookup})'
             )

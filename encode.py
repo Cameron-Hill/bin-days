@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from argparse import ArgumentParser
 
-from BIN_TYPES import ENCODED
+from bin_types import ENCODED, BINS
 MAX_SIZE = 1024
 
 
@@ -35,6 +35,20 @@ def ascii_char(n: int):
     return chr(n + 48)  # ascii 0 = 48
 
 
+def encode(bin_chars: str) -> chr:
+    # Each encoded bin is a power of 2. We do a bitwise or to get the int value of both bins and
+    # write that out as an ascii char
+    # e.g. ggr = g + gr = 2 | 8  = 01000000 | 00010000 = 01010000  = 10
+    code = 0
+    l = len(bin_chars)
+    for bin_code in BINS:
+        bin_chars = bin_chars.replace(bin_code, "")
+        if len(bin_chars) < l:
+            code |= ENCODED[bin_code]
+            l = len(bin_chars)
+    return code
+
+
 def encode_values(json_data):
     encoded = {}
     for year, month_d in json_data.items():
@@ -42,7 +56,7 @@ def encode_values(json_data):
         encoded[year_key] = {}
         for month, days in month_d.items():
             encoded[year_key][ascii_char(int(month))] = {ascii_char(int(
-                d)): ascii_char(ENCODED[v]) for d, v in days.items()}
+                d)): ascii_char(encode(v)) for d, v in days.items()}
     return encoded
 
 
