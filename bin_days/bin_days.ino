@@ -599,7 +599,7 @@ void loop() {
       Date tomorrow = getTomorrow(today);
       code = getCode(tomorrow);
       blinkRate = BASE_BLINK;
-      nextUpdate(now, 24 - now.hour);
+      nextUpdate =addHour(now, 24 - now.hour);
     }
     clearControllers();
     dispatchActions(code);
