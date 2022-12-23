@@ -8,27 +8,14 @@
 // A5 -> SCL  -> BLUE
 
 // const static int STANDARD_DELAY_TIME=60000;
-const static int STANDARD_DELAY_TIME = 5000;
-const static int ALERT_DELAY_TIME = 1000;
-const static uint8_t NO_BIN = 0;
-const static uint8_t GREY_BIN = 1;
-const static uint8_t BROWN_BIN = 2;
-const static uint8_t FOOD_CADY = 3;
-const static uint8_t BLUE_BIN = 4;
-const static uint8_t GREEN_BIN = 5;
-const static uint8_t PURPLE_BIN = 6;
-const static uint8_t NO_CAL_DATA = 255;
-
-const static uint8_t RED_1 = 2;
-const static uint8_t GREEN_1 = 4;
-const static uint8_t BLUE_1 = 6;
-const static uint8_t RED_2 = 8;
-const static uint8_t GREEN_2 = 10;
-const static uint8_t BLUE_2 = 12;
-
+const static unsigned int TICK_RATE = 200;
+const static unsigned int ALERT_DELAY_TIME = 1000;
 const static uint8_t BIN_CODE_SIZE = 7;
-
-const static uint8_t CONCURRENT_CONTROLLERS=2;
+const static uint8_t CONCURRENT_CONTROLLERS = 2;
+const static uint8_t INPUT_PIN = 12;
+const static uint16_t MAX_BIN_SIZE = 1024;
+const static uint8_t BASE_BLINK = 10;
+const static uint8_t ALERT_BLINK = 5;
 
 struct BIN_CODE {
   void (*action)();
@@ -42,6 +29,15 @@ struct Date {
   uint16_t year;
 };
 
+struct Time {
+  uint16_t year;
+  uint16_t month;
+  uint16_t day;
+  uint16_t hour;
+  uint16_t minute;
+  uint16_t second;
+};
+
 struct parsedGroup {
   uint8_t code;
   uint16_t year;
@@ -50,9 +46,14 @@ struct parsedGroup {
 };
 
 uint8_t ndays[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-int delayTime = STANDARD_DELAY_TIME;
+int delayTime = TICK_RATE;
 uint8_t controllerArraySize = 0;
 uint8_t controllerArrayPtr = 0;
+uint8_t blinkRate = BASE_BLINK;
+uint8_t blink = 0;
+Date today;
+Time now;
+Time nextUpdate;
 
 struct pinGroup {
   uint8_t red;
@@ -62,48 +63,47 @@ struct pinGroup {
   uint8_t white;
 };
 
-pinGroup pinGroups[CONCURRENT_CONTROLLERS] = {pinGroup{ 2, 4, 6, 8, 10 }, pinGroup{ 3, 5, 7, 9, 11 }};
+// We need a different pin group for each concurrent controller
+pinGroup pinGroups[CONCURRENT_CONTROLLERS] = {
+  pinGroup{ 2, 4, 6, 8, 10 }, pinGroup{ 3, 5, 7, 9, 11 }
+};
 
 class LEDController {
 public:
-  uint16_t id=0;
+  uint16_t id = 0;
   bool white = false;
   bool orange = false;
   bool red = false;
   bool green = false;
   bool blue = false;
+  bool active = false;
 
-  LEDController() =default;
+  LEDController() = default;
   LEDController(uint16_t i, bool r, bool g, bool b, bool o, bool w) {
     red = r;
     green = g;
     blue = b;
     white = w;
     orange = o;
-    id=i;
+    id = i;
   }
 
-  void apply(pinGroup group, uint8_t val){
-    if (red){digitalWrite(group.red, val);}
-    if (green){digitalWrite(group.green, val);}
-    if (blue){digitalWrite(group.blue, val);}
-    if (white){digitalWrite(group.white, val);}
-    if (orange){digitalWrite(group.orange, val);}
+  void apply(pinGroup group, uint8_t val) {
+    if (red) { digitalWrite(group.red, val); }
+    if (green) { digitalWrite(group.green, val); }
+    if (blue) { digitalWrite(group.blue, val); }
+    if (white) { digitalWrite(group.white, val); }
+    if (orange) { digitalWrite(group.orange, val); }
+    active = val == HIGH;
   }
 
   void set(pinGroup group) {
-    Serial.print("Controller ");
-    Serial.print(id);
-    Serial.println("Set");
     apply(group, HIGH);
   }
 
-  void clear(pinGroup group){
-    Serial.print("Controller ");
-    Serial.print(id);
-    Serial.println("Cleared");
+  void clear(pinGroup group) {
     apply(group, LOW);
-  }  
+  }
 };
 
 LEDController controllerArray[BIN_CODE_SIZE];
@@ -168,15 +168,17 @@ public:
 
 uRTCLib rtc(0x68);
 
-const int MAX_BIN_SIZE = 1024;
+
+// ************************** IO Functions
+
 char binData[MAX_BIN_SIZE];
 int binDataSize = 0;
-Date today;
 
 int getIntSize(int x) {
   x = abs(x);
   return (x < 10 ? 1 : (x < 100 ? 2 : (x < 1000 ? 3 : (x < 10000 ? 4 : (x < 100000 ? 5 : (x < 1000000 ? 6 : (x < 10000000 ? 7 : (x < 100000000 ? 8 : (x < 1000000000 ? 9 : 10)))))))));
 }
+
 
 bool isCalUpdate(char *update, int size) {
   char search[] = { 'c', 'a', 'l', ':' };
@@ -271,6 +273,8 @@ uint8_t mPow(uint8_t a, uint8_t b = 2) {
   return x;
 }
 
+// ************************** code functions
+
 int getCode() {
   Parser parser = Parser();
   for (int i = 0; i < binDataSize; i++) {
@@ -301,6 +305,12 @@ uint8_t getCode(Date date) {
   return -1;
 }
 
+uint8_t getCode(Time now) {
+  return getCode(Date{ now.day, now.month, now.year });
+}
+
+// ************************** Date functions
+
 bool isLeapYear(Date date) {
   if ((date.year + 2000) % 4 == 0) {
     if ((date.year + 2000) % 100 == 0) {
@@ -315,6 +325,11 @@ bool isLeapYear(Date date) {
   return false;
 }
 
+bool isLeapYear(Time time) {
+  Date date = Date{ time.day, time.month, time.year };
+  return isLeapYear(date);
+}
+
 bool greaterThan(Date a, Date b) {
   if (a.year > b.year) {
     return true;
@@ -326,7 +341,22 @@ bool greaterThan(Date a, Date b) {
   return false;
 }
 
-Date getTommorrow(Date date) {
+
+bool greaterThan(Time a, Time b) {
+  if (greaterThan(Date{ a.day, a.month, a.year }, Date{ b.day, b.month, b.year })) {
+    return true;
+  } else if (a.year == b.year && a.month == b.month && a.day == b.day && a.hour > b.hour) {
+    return true;
+  } else if (a.year == b.year && a.month == b.month && a.day == b.day && a.hour == b.hour && a.minute > b.minute) {
+    return true;
+  } else if (a.year == b.year && a.month == b.month && a.day == b.day && a.hour == b.hour && a.minute == b.minute && a.second > b.second) {
+    return true;
+  }
+  return false;
+}
+
+
+Date getTomorrow(Date date) {
   bool leap = isLeapYear(date) && date.month == 2;
   if (date.day == ndays[date.month] + leap) {
     if (date.month == 12) {
@@ -335,6 +365,35 @@ Date getTommorrow(Date date) {
     return Date{ 1, date.month + 1, date.year };
   }
   return Date{ date.day + 1, date.month, date.year };
+}
+
+Time getTomorrow(Time date) {
+  bool leap = isLeapYear(date) && date.month == 2;
+  if (date.day == ndays[date.month] + leap) {
+    if (date.month == 12) {
+      return Time{ date.year + 1, 1, 1, date.hour, date.minute, date.second };
+    }
+    return Time{ date.year, date.month + 1, 1, date.hour, date.minute, date.second };
+  }
+  return Time{ date.year, date.month, date.day + 1, date.hour, date.minute, date.second };
+}
+
+Time addHour(Time time, uint8_t hour = 1) {
+  Time rtime = time;
+  if (time.hour + hour > 23) {
+    rtime = getTomorrow(time);
+  }
+  rtime.hour = (time.hour + hour) % 24;
+  return rtime;
+}
+
+Time addMinute(Time time, uint8_t min = 1) {
+  Time rtime = time;
+  if (time.minute + min > 59) {
+    rtime = addHour(time);
+  }
+  rtime.minute = (time.minute + min) % 60;
+  return rtime;
 }
 
 void printDate(Date date, bool newLine = true) {
@@ -349,32 +408,68 @@ void printDate(Date date, bool newLine = true) {
   }
 }
 
-void initializePinGroups(){
-  for (int i=0; i<CONCURRENT_CONTROLLERS; i++){
-      pinMode(pinGroups[i].red, OUTPUT);
-      pinMode(pinGroups[i].green, OUTPUT);
-      pinMode(pinGroups[i].blue, OUTPUT);
-      pinMode(pinGroups[i].orange, OUTPUT);
-      pinMode(pinGroups[i].white, OUTPUT);
+void printDate(Time time, bool newLine = true) {
+  Serial.print(time.year);
+  Serial.print("/");
+  Serial.print(time.month);
+  Serial.print("/");
+  Serial.print(time.day);
+  Serial.print(" ");
+  Serial.print(time.hour);
+  Serial.print(":");
+  Serial.print(time.minute);
+  Serial.print(":");
+  if (newLine) {
+    Serial.println(time.second);
+  } else {
+    Serial.print(time.second);
   }
 }
 
-void addController(LEDController controller){
-  for (int i=0; i< controllerArraySize; i++){
-    if (controller.id == controllerArray[i].id){
+
+// ************************** Controller Functions
+
+
+void initializePinGroups() {
+  for (int i = 0; i < CONCURRENT_CONTROLLERS; i++) {
+    pinMode(pinGroups[i].red, OUTPUT);
+    pinMode(pinGroups[i].green, OUTPUT);
+    pinMode(pinGroups[i].blue, OUTPUT);
+    pinMode(pinGroups[i].orange, OUTPUT);
+    pinMode(pinGroups[i].white, OUTPUT);
+  }
+}
+
+void addController(LEDController controller) {
+  for (int i = 0; i < controllerArraySize; i++) {
+    if (controller.id == controllerArray[i].id) {
       return;
     }
   }
-  controllerArray[controllerArraySize]  = controller;
-  controllerArraySize ++;
+  controllerArray[controllerArraySize] = controller;
+  controllerArraySize++;
   Serial.print("Controller Added: ");
   Serial.println(controller.id);
 }
 
-void clearControllers(){
+void clearControllers() {
+  for (int i = 0; i < controllerArraySize; i++) {
+    for (int j = 0; j < CONCURRENT_CONTROLLERS; j++) {
+      controllerArray[i].clear(pinGroups[j]);
+    }
+  }
   free(controllerArray);
-  controllerArraySize=0;
-  controllerArrayPtr=0;
+  controllerArraySize = 0;
+  controllerArrayPtr = 0;
+}
+
+bool in(uint8_t val, uint8_t *arr, uint8_t size) {
+  for (int i = 0; i < size; i++) {
+    if (arr[i] == val) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void applyControllers() {
@@ -394,17 +489,19 @@ void applyControllers() {
   }
 }
 
+
+// ************************** Actions
+
 void codeGrey() {
   // Serial.println("CODE GREY");
-  addController(LEDController(1, true, true, true, false, false));
-
+  addController(LEDController(1, false, false, false, false, true));
 }
 void codeBrown() {
   // Serial.println("CODE BROWN");
   addController(LEDController(2, false, false, false, true, false));
 }
 void codeFood() {
-  addController(LEDController(3, false, false, false, false, true));
+  addController(LEDController(3, true, true, false, true, false));
 }
 void codeBlue() {
   // Serial.println("CODE BLUE");
@@ -419,6 +516,7 @@ void codePurple() {
   addController(LEDController(6, true, false, true, false, false));
 }
 void noCalData() {
+  addController(LEDController(6, true, false, false, false, false));
   Serial.println("No More Cal Data");
 }
 
@@ -430,14 +528,41 @@ BIN_CODE BIN_CODES[] = {
 };
 
 
-void callActions(uint8_t code, bool alert = false) {
+bool buttonAction() {
+  uint8_t input = digitalRead(INPUT_PIN);
+  if (input) {
+    for (uint8_t i = 0; i < BIN_CODE_SIZE; i++) {
+      BIN_CODES[i].action();
+    }
+    nextUpdate = addMinute(now, 2);
+  }
+}
+
+void dispatchActions(uint8_t code) {
   // I am sure there are smarter ways to do this but y'know
-  for (uint8_t j = BIN_CODE_SIZE; j > 0; j--) {
-    if (code >= BIN_CODES[j - 1].code) {
-      code -= BIN_CODES[j - 1].code;
-      BIN_CODES[j - 1].action();
+  if (code > 0) {
+    for (uint8_t j = BIN_CODE_SIZE; j > 0; j--) {
+      if (code >= BIN_CODES[j - 1].code) {
+        code -= BIN_CODES[j - 1].code;
+        BIN_CODES[j - 1].action();
+      }
     }
   }
+}
+
+
+// ************************** MAIN LOOP
+
+
+void refresh() {
+  rtc.refresh();
+  now = Time{ rtc.year(), rtc.month(), rtc.day(), rtc.hour(), rtc.minute(), rtc.second() };
+  today = Date{ rtc.day(), rtc.month(), rtc.year() };
+}
+
+void testRefresh() {
+  now = addMinute(now, 30);
+  today = Date{ now.day, now.month, now.year };
 }
 
 void setup() {
@@ -446,55 +571,53 @@ void setup() {
   URTCLIB_WIRE.begin();
   loadBinData();
   initializePinGroups();
-  rtc.refresh();
-  today = Date{ rtc.day(), rtc.month(), rtc.year() };
-  Serial.println("Ready!");
-  printDate(today);
+  pinMode(INPUT_PIN, INPUT);
+  refresh();
+  nextUpdate = now;
+  Serial.print("Started:  ");
+  printDate(now);
 }
 
 
-
 void loop() {
-  // printDate(today, false);
-  // uint16_t hour = rtc.hour();
-  // uint8_t code = getCode(today);
-  // if (code > 0 && hour < 10) {
-  //   if (hour > 6) {
-  //     delayTime = ALERT_DELAY_TIME;
-  //     // callActions(code, true);
-  //   } else {
-  //     delayTime = STANDARD_DELAY_TIME;
-  //     // callActions(code);
-  //   }
+  refresh();
+  if (greaterThan(now, nextUpdate)) {
+    Serial.print("Updated:  ");
+    printDate(now);
+    nextUpdate = getTomorrow(now);
 
-  // } else {
-  //   Date tommorrow = getTommorrow(today);
-  //   code = getCode(tommorrow);
-  //   delayTime = STANDARD_DELAY_TIME;
-  //   if (code > 0) {
-  //     printDate(tommorrow);
-  //     callActions(code);
-  //   } else {
-  //     clearControllers();
-  //   }
-  // }
-  // today = getTommorrow(today);
-  
-  
-  codeGrey();
-  codeBrown();
-  // codeGreen();
-  codeBlue();
-  codeFood();
-  codePurple();
+
+    uint8_t code = getCode(today);
+
+    if (code > 0 && now.hour < 9) {
+      if (now.hour > 7){
+        blinkRate = ALERT_BLINK;
+        Serial.println("Set Status: Alert");
+      }
+      nextUpdate = addHour(now);
+    } else {
+      Date tomorrow = getTomorrow(today);
+      code = getCode(tomorrow);
+      blinkRate = BASE_BLINK;
+      nextUpdate(now, 24 - now.hour);
+    }
+    clearControllers();
+    dispatchActions(code);
+
+    Serial.println();
+  }
+
+  buttonAction();
+
+  if (!blink) {
+    applyControllers();
+  }
+
 
   if (Serial) {
     requestUpdate();
   }
 
-  applyControllers();
-
-
-
-  delay(delayTime);
+  blink = (blink + 1) % blinkRate;
+  delay(TICK_RATE);
 }
