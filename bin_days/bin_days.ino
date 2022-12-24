@@ -239,6 +239,7 @@ void readCal(char *cal, int calSize) {
   for (int i = 0; i < calSize; i++) {
     cal[i] = EEPROM.read(addr + i);
   }
+  getCode();
   return cal;
 }
 
